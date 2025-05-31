@@ -1,0 +1,141 @@
+import java.io.*;
+import java.util.*;
+
+// =================== CLASE ITEM ===================
+class Item {
+    public enum ItemType { MULTIPLE_CHOICE, TRUE_FALSE }
+
+    private String question;
+    private String[] options;
+    private int correctIndex;
+    private String bloomLevel;
+    private ItemType type;
+    private int estimatedTime;
+
+    public Item(String question, String[] options, int correctIndex, String bloomLevel, ItemType type, int estimatedTime) {
+        this.question = question;
+        this.options = options;
+        this.correctIndex = correctIndex;
+        this.bloomLevel = bloomLevel;
+        this.type = type;
+        this.estimatedTime = estimatedTime;
+    }
+
+    public String getQuestion() { return question; }
+    public String[] getOptions() { return options; }
+    public int getCorrectIndex() { return correctIndex; }
+    public String getBloomLevel() { return bloomLevel; }
+    public ItemType getType() { return type; }
+    public int getEstimatedTime() { return estimatedTime; }
+}
+
+// =================== CLASE EXAM MANAGER ===================
+class ExamManager {
+    private List<Item> items = new ArrayList<>();
+    private Map<Integer, Integer> userAnswers = new HashMap<>();
+
+    public void loadItemsFromFile(File file) throws IOException {
+        items.clear();
+        BufferedReader reader = new BufferedReader(new FileReader(file));
+        String line;
+        while ((line = reader.readLine()) != null) {
+            // Formato: tipo|pregunta|opcion1,opcion2,...|indiceCorrecto|nivelBloom|tiempo
+            String[] parts = line.split("\\|");
+            if (parts.length != 6) continue;
+
+            Item.ItemType type = parts[0].equals("MC") ? Item.ItemType.MULTIPLE_CHOICE : Item.ItemType.TRUE_FALSE;
+            String question = parts[1];
+            String[] options = parts[2].split(",");
+            int correctIndex = Integer.parseInt(parts[3]);
+            String bloomLevel = parts[4];
+            int time = Integer.parseInt(parts[5]);
+
+            items.add(new Item(question, options, correctIndex, bloomLevel, type, time));
+        }
+        reader.close();
+    }
+
+    public List<Item> getItems() {
+        return items;
+    }
+
+    public int getTotalEstimatedTime() {
+        return items.stream().mapToInt(Item::getEstimatedTime).sum();
+    }
+
+    public void saveAnswer(int index, int optionIndex) {
+        userAnswers.put(index, optionIndex);
+    }
+
+    public Map<Integer, Integer> getUserAnswers() {
+        return userAnswers;
+    }
+}
+
+// =================== CLASE MAIN ===================
+public class Main {
+    private static ExamManager examManager = new ExamManager();
+    private static Scanner scanner = new Scanner(System.in);
+
+    public static void main(String[] args) {
+        boolean salir = false;
+
+        while (!salir) {
+            System.out.println("\n===== Menu Principal =====");
+            System.out.println("1. Cargar items desde archivo");
+            System.out.println("2. Ver items cargados");
+            System.out.println("3. Ver tiempo estimado total");
+            System.out.println("4. Salir");
+            System.out.print("Seleccione una opcion: ");
+            String opcion = scanner.nextLine();
+
+            switch (opcion) {
+                case "1":
+                    cargarArchivo();
+                    break;
+                case "2":
+                    mostrarItems();
+                    break;
+                case "3":
+                    System.out.println("Tiempo estimado total: " + examManager.getTotalEstimatedTime() + " minutos");
+                    break;
+                case "4":
+                    salir = true;
+                    break;
+                default:
+                    System.out.println("Opcion no valida.");
+            }
+        }
+    }
+
+    private static void cargarArchivo() {
+        try {
+            System.out.print("Ingrese ruta del archivo (ej: items.txt): ");
+            String ruta = scanner.nextLine();
+            File archivo = new File(ruta);
+            examManager.loadItemsFromFile(archivo);
+            System.out.println("Archivo cargado exitosamente. Total items: " + examManager.getItems().size());
+        } catch (Exception e) {
+            System.out.println("Error al cargar el archivo: " + e.getMessage());
+        }
+    }
+
+    private static void mostrarItems() {
+        List<Item> items = examManager.getItems();
+        if (items.isEmpty()) {
+            System.out.println("No hay items cargados.");
+            return;
+        }
+
+        int i = 1;
+        for (Item item : items) {
+            System.out.println("\nItem #" + i++);
+            System.out.println("Pregunta: " + item.getQuestion());
+            System.out.println("Opciones: " + String.join(", ", item.getOptions()));
+            System.out.println("Respuesta correcta (indice): " + item.getCorrectIndex());
+            System.out.println("Tipo: " + item.getType());
+            System.out.println("Nivel Bloom: " + item.getBloomLevel());
+            System.out.println("Tiempo estimado: " + item.getEstimatedTime() + " min");
+        }
+    }
+}
