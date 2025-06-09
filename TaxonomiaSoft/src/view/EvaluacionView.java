@@ -1,4 +1,3 @@
-// view/EvaluacionView.java
 package view;
 
 import backend.Item;
@@ -7,10 +6,13 @@ import controller.EvaluacionController;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.ArrayList;
 
 public class EvaluacionView extends JFrame {
     private List<Item> items;
@@ -87,7 +89,7 @@ public class EvaluacionView extends JFrame {
             itemActual = indice;
             panelPreguntas.removeAll();
             Item item = items.get(indice);
-            lblItem.setText("Item " + item.itemId + " - Nivel: " + item.nivel);
+            lblItem.setText("Item " + item.itemId + " - Tipo: " + item.tipo);
 
             for (Pregunta pregunta : item.preguntas) {
                 JPanel panelPregunta = new JPanel(new BorderLayout());
@@ -96,23 +98,46 @@ public class EvaluacionView extends JFrame {
                 JPanel opcionesPanel = new JPanel();
                 opcionesPanel.setLayout(new BoxLayout(opcionesPanel, BoxLayout.Y_AXIS));
 
-                List<JCheckBox> checkBoxes = new ArrayList<>();
-                for (String opcion : pregunta.opciones) {
-                    JCheckBox cb = new JCheckBox(opcion);
-                    checkBoxes.add(cb);
-                    opcionesPanel.add(cb);
-                }
-
-                for (JCheckBox cb : checkBoxes) {
-                    cb.addItemListener(e -> {
-                        List<String> seleccionadas = new ArrayList<>();
-                        for (JCheckBox box : checkBoxes) {
-                            if (box.isSelected()) {
-                                seleccionadas.add(box.getText());
+                if (pregunta.tipo.equals("opcion_multiple")) {
+                    List<JCheckBox> checkBoxes = new ArrayList<>();
+                    for (String opcion : pregunta.opciones) {
+                        JCheckBox cb = new JCheckBox(opcion);
+                        checkBoxes.add(cb);
+                        opcionesPanel.add(cb);
+                    }
+                    for (JCheckBox cb : checkBoxes) {
+                        cb.addItemListener(e -> {
+                            List<String> seleccionadas = new ArrayList<>();
+                            for (JCheckBox c : checkBoxes) {
+                                if (c.isSelected()) {
+                                    seleccionadas.add(c.getText().toLowerCase());
+                                }
                             }
-                        }
-                        respuestasUsuario.put(pregunta.preguntaId, seleccionadas);
-                    });
+                            controller.guardarRespuesta(respuestasUsuario, pregunta.preguntaId, seleccionadas);
+                            // DEBUG
+                            System.out.println("Respuesta usuario (preguntaId " + pregunta.preguntaId + "): " + seleccionadas);
+                        });
+                    }
+                } else if (pregunta.tipo.equals("verdadero_falso")) {
+                    ButtonGroup group = new ButtonGroup();
+                    JRadioButton rbVerdadero = new JRadioButton("Verdadero");
+                    JRadioButton rbFalso = new JRadioButton("Falso");
+                    group.add(rbVerdadero);
+                    group.add(rbFalso);
+                    opcionesPanel.add(rbVerdadero);
+                    opcionesPanel.add(rbFalso);
+
+                    ActionListener al = e -> {
+                        List<String> seleccionada = new ArrayList<>();
+                        if (rbVerdadero.isSelected()) seleccionada.add("verdadero");
+                        if (rbFalso.isSelected()) seleccionada.add("falso");
+                        controller.guardarRespuesta(respuestasUsuario, pregunta.preguntaId, seleccionada);
+                        System.out.println("Respuesta usuario (preguntaId " + pregunta.preguntaId + "): " + seleccionada);
+                    };
+
+                    rbVerdadero.addActionListener(al);
+                    rbFalso.addActionListener(al);
+                    
                 }
 
                 panelPregunta.add(opcionesPanel, BorderLayout.CENTER);

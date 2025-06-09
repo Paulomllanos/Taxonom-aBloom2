@@ -7,5 +7,6 @@ public class Pregunta {
     public String texto;
     public List<String> opciones;
     public List<String> respuestasCorrectas;
+    public String tipo; // "opcion_multiple" o "verdadero_falso"
 }
 

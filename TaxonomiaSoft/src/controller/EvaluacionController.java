@@ -1,4 +1,3 @@
-// controller/EvaluacionController.java
 package controller;
 
 import backend.Item;
@@ -11,30 +10,79 @@ import java.util.*;
 public class EvaluacionController {
     public List<Item> cargarEvaluacionDesdeTxt(File archivo) throws IOException {
         List<Item> items = new ArrayList<>();
-        BufferedReader lector = new BufferedReader(new FileReader(archivo));
+        BufferedReader reader = new BufferedReader(
+            new InputStreamReader(new FileInputStream(archivo), "UTF-8")
+        );
         String linea;
         Item itemActual = null;
+        List<Pregunta> preguntas = new ArrayList<>();
+        int preguntaId = 1;
 
-        while ((linea = lector.readLine()) != null) {
-            if (linea.startsWith("Item")) {
-                String[] partes = linea.split("\\|");
+        while ((linea = reader.readLine()) != null) {
+            linea = linea.trim();
+
+            if (linea.startsWith("[Item")) {
+                if (itemActual != null) {
+                    itemActual.preguntas = preguntas;
+                    items.add(itemActual);
+                }
                 itemActual = new Item();
-                itemActual.itemId = Integer.parseInt(partes[1]);
-                itemActual.nivel = partes[2];
-                itemActual.preguntas = new ArrayList<>();
-                items.add(itemActual);
-            } else if (linea.startsWith("Pregunta") && itemActual != null) {
-                String[] partes = linea.split("\\|");
-                Pregunta pregunta = new Pregunta();
-                pregunta.preguntaId = Integer.parseInt(partes[1]);
-                pregunta.texto = partes[2];
-                pregunta.opciones = Arrays.asList(partes[3].split(","));
-                pregunta.respuestasCorrectas = Arrays.asList(partes[4].split(","));
-                itemActual.preguntas.add(pregunta);
+                itemActual.itemId = items.size() + 1;
+                itemActual.tipo = linea.toLowerCase().contains("verdadero/falso") ? "verdadero_falso" : "opcion_multiple";
+                preguntas = new ArrayList<>();
+            } else if (linea.toLowerCase().startsWith("pregunta")) {
+                Pregunta p = new Pregunta();
+                p.preguntaId = preguntaId++;
+                p.texto = linea.substring(linea.indexOf(":") + 1).trim();
+                p.opciones = new ArrayList<>();
+                p.respuestasCorrectas = new ArrayList<>();
+                p.tipo = itemActual.tipo;
+                System.out.println("Pregunta cargada: " + p.texto);
+                System.out.println("→ Tipo asignado: " + p.tipo);
+
+                while ((linea = reader.readLine()) != null && !linea.trim().isEmpty()) {
+                    linea = linea.trim();
+                    //! Errores con capturar respuesta para seleccion multiple
+                    if (linea.startsWith("Opciones:")) {
+                        while ((linea = reader.readLine()) != null && linea.trim().startsWith("-")) {
+                            p.opciones.add(linea.trim().substring(1).trim());
+                        }
+                    } else if (linea.startsWith("Respuesta:")) {
+                        String resp = linea.substring(9).trim();
+                        if (resp.contains(",")) {
+                            for (String r : resp.split(",")) {
+                                //respuestas correctas almacenadas
+                                String respuestaNormalizada = r.trim().toLowerCase();
+                                System.out.println("Respuesta correcta cargada: " + respuestaNormalizada);
+                                p.respuestasCorrectas.add(respuestaNormalizada);
+                                // p.respuestasCorrectas.add(r.trim().toLowerCase());
+                            }
+                        } else {
+                            String respuestaNormalizada = resp.trim().toLowerCase();
+                            System.out.println("Respuesta correcta cargada: " + respuestaNormalizada);
+                            p.respuestasCorrectas.add(respuestaNormalizada);
+                            // p.respuestasCorrectas.add(resp.trim().toLowerCase());
+                        }
+                    } else if (linea.startsWith("Tipo:")) {
+                        p.tipo = linea.substring(5).trim().toLowerCase();
+                    }
+                    //! Aqui termina el error
+                }
+
+                if (p.tipo.equals("verdadero_falso")) {
+                    p.opciones = Arrays.asList("verdadero", "falso");
+                }
+
+                preguntas.add(p);
             }
         }
 
-        lector.close();
+        if (itemActual != null) {
+            itemActual.preguntas = preguntas;
+            items.add(itemActual);
+        }
+
+        reader.close();
         return items;
     }
 
@@ -48,15 +96,19 @@ public class EvaluacionController {
             for (Pregunta pregunta : item.preguntas) {
                 totalPreguntas++;
                 List<String> respuesta = respuestasUsuario.getOrDefault(pregunta.preguntaId, new ArrayList<>());
-                if (new HashSet<>(respuesta).equals(new HashSet<>(pregunta.respuestasCorrectas))) {
+                Set<String> r1 = new HashSet<>();
+                for (String s : respuesta) r1.add(s.trim().toLowerCase());
+                Set<String> r2 = new HashSet<>();
+                for (String s : pregunta.respuestasCorrectas) r2.add(s.trim().toLowerCase());
+                if (r1.equals(r2)) {
                     totalCorrectas++;
                     correctasItem++;
                 }
             }
 
             double porcentajeItem = (double) correctasItem * 100 / item.preguntas.size();
-            resultados.append("Item ").append(item.itemId)
-                    .append(" - ").append(String.format("%.2f", porcentajeItem)).append("% correctas\n");
+            resultados.append("Item ").append(item.itemId).append(" (").append(item.tipo).append("): ")
+                    .append(String.format("%.2f", porcentajeItem)).append("% correctas\n");
         }
 
         double porcentajeTotal = (double) totalCorrectas * 100 / totalPreguntas;
@@ -65,7 +117,10 @@ public class EvaluacionController {
         Map<String, Object> resultadoFinal = new HashMap<>();
         resultadoFinal.put("porcentaje", porcentajeTotal);
         resultadoFinal.put("detalle", resultados.toString());
-
         return resultadoFinal;
+    }
+
+    public void guardarRespuesta(Map<Integer, List<String>> mapa, int id, List<String> valores) {
+        mapa.put(id, valores);
     }
 }
